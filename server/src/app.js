@@ -4,13 +4,14 @@ import express from "express";
 import cors from "cors";
 export const app=express();
 import cookieParser from "cookie-parser";
+import ApiError from "./utils/ApiError.js";
 
 
 
 
 
 app.use(cors({
-  origin:process.env.FRONTEND_URL||"http://localhost:5174", 
+  origin:process.env.FRONTEND_URL||"http://localhost:5173", 
   credentials: true,
    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],             
 }));
@@ -33,19 +34,30 @@ app.use((req, res, next) => {
 });
 
 // pages 
-import userRoutes from "./routes/user.js";
-app.use("/api/v1/user",userRoutes);
+import authRoutes from "./routes/auth.routes.js";
+app.use("/api/v1/auth", authRoutes);
+
+
+
+
 
 
 
 
 app.use((err, req, res, next) => {
-  res.status(err.statusCode || 500).json({
+  if (err instanceof ApiError) {
+    return res.status(err.statusCode).json({
+      success: false,
+      message: err.message,
+      errors: err.errors,
+    });
+  }
+
+  console.error("Unhandled error:", err);
+
+  return res.status(500).json({
     success: false,
-    message: err.message || "Internal Server Error",
-    errors: err.errors || [],
-    data: err.data || null,
-    errorName: err.errorName || "ApiError",
-    stack: process.env.NODE_ENV === "production" ? null : err.stack,
+    message: "Internal Server Error",
   });
 });
+
