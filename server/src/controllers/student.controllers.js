@@ -8,30 +8,19 @@ import  ApiResponse from "../utils/ApiResponse.js";
 import  ApiError  from "../utils/ApiError.js";
 
 
-
 export const verifyReceipt = asyncHandler(async (req, res) => {
-  /* ---------- AUTH ---------- */
+  /* ================= AUTH ================= */
   if (!req.user || !req.user.uid || !req.user.email) {
-    return res.status(401).json(
-      new ApiResponse({
-        statusCode: 401,
-        message: "Unauthorized",
-      })
-    );
+    throw new ApiError(401, "Unauthorized");
   }
 
   if (!req.file) {
-    return res.status(400).json(
-      new ApiResponse({
-        statusCode: 400,
-        message: "Receipt image required",
-      })
-    );
+    throw new ApiError(400, "Receipt image required");
   }
 
   const { uid, email } = req.user;
 
-  /* ---------- 1️⃣ SCAN & VERIFY QR ---------- */
+  /* ================= 1️⃣ SCAN & VERIFY QR ================= */
   const qrToken = await scanQRFromImage(req.file.buffer);
   const rawQrData = verifyQRToken(qrToken);
 
@@ -52,23 +41,18 @@ export const verifyReceipt = asyncHandler(async (req, res) => {
     !qrData.validTill ||
     Number.isNaN(qrData.initialCredits)
   ) {
-    return res.status(400).json(
-      new ApiResponse({
-        statusCode: 400,
-        message: "Invalid receipt QR data",
-      })
-    );
+    throw new ApiError(400, "Invalid receipt QR data");
   }
 
-  /* ---------- 2️⃣ CROSS-CHECK IDENTITY ---------- */
+  /* ================= 2️⃣ IDENTITY CHECK ================= */
   const emailRoll = extractRollFromEmail(email);
   if (qrData.roll !== emailRoll) {
-    return res.status(403).json(
-      new ApiResponse({
-        statusCode: 403,
-        message: "Receipt does not belong to you",
-      })
-    );
+    throw new ApiError(403, "Receipt does not belong to you");
+  }
+
+  /* ================= 3️⃣ VALIDITY CHECK ================= */
+  if (new Date(qrData.validTill) < new Date()) {
+    throw new ApiError(400, "Receipt has expired");
   }
 
   const receiptRef = db
@@ -77,16 +61,24 @@ export const verifyReceipt = asyncHandler(async (req, res) => {
 
   const studentRef = db.collection("students").doc(uid);
 
-  /* ---------- 3️⃣ ATOMIC & IDEMPOTENT TRANSACTION ---------- */
+  /* ================= 4️⃣ ATOMIC TRANSACTION ================= */
   await db.runTransaction(async (tx) => {
+    /* ---------- A. CHECK STUDENT FIRST (IDEMPOTENT) ---------- */
+    const studentSnap = await tx.get(studentRef);
+
+    if (studentSnap.exists && studentSnap.data().receiptVerified) {
+      // Student already verified → safe retry
+      return;
+    }
+
+    /* ---------- B. CHECK RECEIPT USAGE ---------- */
     const receiptSnap = await tx.get(receiptRef);
 
-    // 🔁 Receipt already exists
     if (receiptSnap.exists) {
       const usedBy = receiptSnap.data().verifiedByUid;
 
-      // Same student retry → idempotent success
       if (usedBy === uid) {
+        // Same student retry → idempotent success
         return;
       }
 
@@ -97,14 +89,7 @@ export const verifyReceipt = asyncHandler(async (req, res) => {
       );
     }
 
-    const studentSnap = await tx.get(studentRef);
-
-    // 🔁 Student already verified → idempotent success
-    if (studentSnap.exists && studentSnap.data().receiptVerified) {
-      return;
-    }
-
-    /* ---------- SAVE RECEIPT ---------- */
+    /* ---------- C. SAVE RECEIPT ---------- */
     tx.set(receiptRef, {
       receiptId: qrData.receiptId,
       roll: qrData.roll,
@@ -115,7 +100,7 @@ export const verifyReceipt = asyncHandler(async (req, res) => {
       verifiedAt: new Date(),
     });
 
-    /* ---------- UPDATE STUDENT ---------- */
+    /* ---------- D. UPDATE STUDENT ---------- */
     tx.set(
       studentRef,
       {
@@ -132,7 +117,7 @@ export const verifyReceipt = asyncHandler(async (req, res) => {
     );
   });
 
-  /* ---------- 4️⃣ RESPONSE ---------- */
+  /* ================= 5️⃣ RESPONSE ================= */
   return res.status(200).json(
     new ApiResponse({
       statusCode: 200,
@@ -191,3 +176,110 @@ export const getStudentProfile = asyncHandler(async (req, res) => {
     })
   );
 });
+export const selectMess = asyncHandler(async (req, res) => {
+  const { uid } = req.user;
+  const { messId } = req.body;
+
+  if (!messId) {
+    throw new ApiError(400, "Mess ID required");
+  }
+
+  const studentRef = db.collection("students").doc(uid);
+  const messRef = db.collection("messes").doc(messId);
+
+  await db.runTransaction(async (tx) => {
+    /* ================= STUDENT ================= */
+    const studentSnap = await tx.get(studentRef);
+    if (!studentSnap.exists) {
+      throw new ApiError(404, "Student not found");
+    }
+
+    const student = studentSnap.data();
+
+    if (!student.receiptVerified) {
+      throw new ApiError(403, "Receipt not verified");
+    }
+
+    if (student.messSelected) {
+      throw new ApiError(409, "Mess already selected");
+    }
+
+    /* ================= MESS ================= */
+    const messSnap = await tx.get(messRef);
+    if (!messSnap.exists) {
+      throw new ApiError(404, "Mess not found");
+    }
+
+    const mess = messSnap.data();
+
+    if (!mess.isActive) {
+      throw new ApiError(403, "Mess is inactive");
+    }
+
+    // Optional campus enforcement (enable later if needed)
+    // if (mess.campusType !== "BOTH" && mess.campusType !== student.campusType) {
+    //   throw new ApiError(403, "Campus not allowed");
+    // }
+
+    /* ================= VALIDATIONS ================= */
+    if (student.initialCredits < mess.estimatedCredits) {
+      throw new ApiError(403, "Insufficient credits");
+    }
+
+    if (new Date(student.validTill) < new Date(mess.operation.endDate)) {
+      throw new ApiError(
+        403,
+        "Receipt validity is shorter than mess duration"
+      );
+    }
+
+    /* ================= UPDATE STUDENT ================= */
+    tx.update(studentRef, {
+      messSelected: true,
+
+      // Deduct credits
+      initialCredits:
+        student.initialCredits - mess.estimatedCredits,
+
+      // Store FULL mess snapshot (UI friendly)
+      selectedMess: {
+        messId: messId,
+        messName: mess.messName,
+        campusType: mess.campusType,
+        foodType: mess.foodType || "BOTH",
+
+        prices: {
+          breakfast: mess.prices.breakfast,
+          lunch: mess.prices.lunch,
+          snacks: mess.prices.snacks,
+          dinner: mess.prices.dinner,
+          grandDinner: mess.prices.grandDinner,
+        },
+
+        penaltyPercent: mess.penaltyPercent,
+        estimatedCredits: mess.estimatedCredits,
+
+        operation: {
+          startDate: mess.operation.startDate,
+          endDate: mess.operation.endDate,
+          totalDays: mess.operation.totalDays,
+        },
+
+        selectedAt: new Date(),
+      },
+    });
+
+    /* ================= UPDATE MESS ================= */
+    tx.update(messRef, {
+      studentCount: (mess.studentCount || 0) + 1,
+    });
+  });
+
+  return res.status(200).json(
+    new ApiResponse({
+      statusCode: 200,
+      message: "Mess selected successfully",
+    })
+  );
+});
+

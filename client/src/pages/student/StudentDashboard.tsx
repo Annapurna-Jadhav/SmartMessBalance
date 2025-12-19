@@ -34,9 +34,19 @@ type StudentProfile = {
   messSelected: boolean;
   initialCredits?: number;
   selectedMess?: {
-    name: string;
+    messName: string;
+    campusType:string;
+    foodType:string;
+    prices?:{
+      breakfast:number;
+      lunch:number;
+      snacks:number;
+      dinner:number;
+      grandDinner:number;
+    };
     roll: string;
     capacity?: number;
+    studentCount?: number;
   };
 };
 
@@ -48,6 +58,7 @@ const StudentDashboard = () => {
 
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showMessModal, setShowMessModal] = useState(false);
+
 
   if (!authLoading && (!user || user.role !== "student")) {
     return <Navigate to="/login" replace />;
@@ -132,7 +143,7 @@ const StudentDashboard = () => {
               title="Mess Selection"
               description={
                 student.messSelected
-                  ? `Selected: ${student.selectedMess?.name}`
+                  ? `Selected: ${student.selectedMess?.messName}`
                   : "Choose your preferred mess"
               }
               status={student.messSelected}
@@ -160,28 +171,99 @@ const StudentDashboard = () => {
               </CardContent>
             </Card>
           </div>
+{student.messSelected && student.selectedMess && (
+  <Card
+    className="
+      rounded-lg
+      border border-muted/40
+      bg-background
+      transition-all duration-300
+      hover:shadow-md
+      hover:border-[#6770d2]/40
+    "
+  >
+    <CardContent className="p-5 space-y-5">
 
-          {/* ================= SELECTED MESS ================= */}
-          {student.messSelected && student.selectedMess && (
-            <Card className="rounded-2xl border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-              <CardContent className="p-8 space-y-6">
-                <div className="flex items-center gap-2 font-semibold">
-                  <Utensils size={18} />
-                  Selected Mess
-                </div>
+      {/* ===== HEADER ===== */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Utensils size={16} className="text-[#6770d2]" />
+          <h2 className="text-base font-semibold text-[#6770d2]">
+            {student.selectedMess.messName}
+          </h2>
+        </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Info label="Mess Name" value={student.selectedMess.name} />
-                  <Info label="Mess Roll" value={student.selectedMess.roll} />
-                  <Info label="Valid Till" value={student.validTill} />
-                </div>
+        {/* ACTIVE STATUS */}
+        <span
+          className="
+            text-xs font-semibold
+            text-green-700 dark:text-green-400
+            bg-green-500/10
+            px-2.5 py-1 rounded-full
+          "
+        >
+          ACTIVE
+        </span>
+      </div>
 
-                <Badge className="bg-primary/15 text-primary w-fit">
-                  Locked till {student.validTill}
-                </Badge>
-              </CardContent>
-            </Card>
-          )}
+      {/* ===== META ===== */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Meta label="Campus" value={student.selectedMess.campusType} />
+        <Meta label="Food Type" value={student.selectedMess.foodType} />
+        <Meta label="Students" value={student.selectedMess.studentCount} />
+        <Meta label="Valid Till" value={student.validTill} />
+      </div>
+
+      {/* ===== PRICING ===== */}
+      {student.selectedMess.prices && (
+        <div className="space-y-3">
+
+          {/* Highlighted heading */}
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-[#6770d2] to-[#4f58c9]" />
+            <p className="text-sm font-semibold text-[#6770d2]">
+              Meal Pricing
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <MealPrice label="Breakfast" price={student.selectedMess.prices.breakfast} />
+            <MealPrice label="Lunch" price={student.selectedMess.prices.lunch} />
+            <MealPrice label="Snacks" price={student.selectedMess.prices.snacks} />
+            <MealPrice label="Dinner" price={student.selectedMess.prices.dinner} />
+            <MealPrice label="Grand Dinner" price={student.selectedMess.prices.grandDinner} />
+          </div>
+        </div>
+      )}
+
+      {/* ===== FOOTER ===== */}
+      <div className="flex items-center justify-between pt-3 border-t border-muted/30">
+        <span
+          className="
+            text-xs
+            text-[#6770d2]
+            bg-[#6770d2]/10
+            px-3 py-1 rounded-full
+          "
+        >
+          Locked till {student.validTill}
+        </span>
+
+        <span className="text-xs text-muted-foreground">
+          Selection cannot be changed
+        </span>
+      </div>
+
+    </CardContent>
+  </Card>
+)}
+
+
+
+
+
+
+
         </div>
       </div>
 
@@ -196,17 +278,25 @@ const StudentDashboard = () => {
           />
         </DialogContent>
       </Dialog>
-
+{/* 
       <Dialog open={showMessModal} onOpenChange={setShowMessModal}>
         <DialogContent className="p-0 bg-transparent border-none">
-          {/* <SelectMessModal
+          <SelectMessModal
             onSuccess={() => {
               setShowMessModal(false);
               fetchProfile();
             }}
-          /> */}
+          />
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
+      <SelectMessModal
+  open={showMessModal}
+  onClose={() => {
+    setShowMessModal(false);
+    fetchProfile();
+  }}
+/>
+
     </>
   );
 };
@@ -275,3 +365,41 @@ const ActionCard = ({
     </CardContent>
   </Card>
 );
+const Meta = ({ label, value }: { label: string; value?: any }) => (
+  <div className="space-y-1">
+    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+      {label}
+    </p>
+    <p className="text-sm font-medium text-[#6770d2]">
+      {value ?? "—"}
+    </p>
+  </div>
+);
+
+
+const MealPrice = ({ label, price }: { label: string; price: number }) => (
+  <div
+    className="
+      rounded-md
+      border border-muted/40
+      px-3 py-2
+      transition
+      hover:border-[#6770d2]/40
+      hover:bg-[#6770d2]/5
+    "
+  >
+    <p className="text-xs text-muted-foreground">
+      {label}
+    </p>
+    <p className="text-sm font-semibold text-foreground">
+      ₹{price}
+    </p>
+  </div>
+);
+
+
+
+
+
+
+

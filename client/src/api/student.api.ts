@@ -42,3 +42,6 @@ export const getMyStudentProfile = async () => {
   const res = await axiosClient.get("/student/me");
   return res.data?.data;
 };
+export const selectMess = (messId: string) => {
+  return axiosClient.post("/student/select-mess", { messId });
+};

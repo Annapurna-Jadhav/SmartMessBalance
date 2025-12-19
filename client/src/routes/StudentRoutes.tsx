@@ -10,7 +10,7 @@ function StudentRoutes() {
      <Routes>
          <Route element={<ProtectedRoute role="student"/>}>
         <Route element={<ProtectedLayout />}>
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
+          <Route path="/dashboard" element={<StudentDashboard />} />
         </Route>
       </Route>
      </Routes>
