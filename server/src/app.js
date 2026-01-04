@@ -2,11 +2,9 @@ import dotenv from "dotenv";
 dotenv.config();
 import express from "express";
 import cors from "cors";
-export const app=express();
 import cookieParser from "cookie-parser";
 import ApiError from "./utils/ApiError.js";
-
-
+export const app=express();
 
 
 
@@ -46,8 +44,6 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/student", studentRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/qr", qrRoutes);
-
-
 
 
 

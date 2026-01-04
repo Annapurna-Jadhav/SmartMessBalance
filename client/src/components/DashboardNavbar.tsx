@@ -10,6 +10,7 @@ import {
   ScanQrCodeIcon,
 
   LogOut,
+  GitGraphIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,11 @@ const roleDashboardNav: Record<Role, NavItem[]> = {
       label:"scanQR",
       to:"/Mess/scanQR",
       icon:ScanQrCodeIcon,
+    },
+    {
+      label:"analytics",
+      to:"/Mess/analytics",
+      icon:GitGraphIcon
     }
   ],
 

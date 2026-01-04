@@ -179,11 +179,133 @@ export const getMessMealEvents = asyncHandler(async (req, res) => {
 
 
 
+// export const getMessProfile = asyncHandler(async (req, res) => {
+//   const { uid } = req.user;
+//   const today = getTodayDate();
+
+ 
+//   const messSnap = await db
+//     .collection("messes")
+//     .where("messAuth.uid", "==", uid)
+//     .where("isActive", "==", true)
+//     .limit(1)
+//     .get();
+
+//   if (messSnap.empty) {
+//     throw new ApiError(403, "Mess not found or inactive");
+//   }
+
+//   const messDoc = messSnap.docs[0];
+//   const messId = messDoc.id;
+//   const mess = messDoc.data();
+
+//   /* ---------------- FETCH EVENTS ---------------- */
+//   const eventsSnap = await db
+//     .collection("messes")
+//     .doc(messId)
+//     .collection("meal_events")
+//     .get();
+
+//   let totalServed = 0;
+//   let totalAbsent = 0;
+//   let totalNoShow = 0;
+
+//   let todayServed = 0;
+//   let todayAbsent = 0;
+//   let todayNoShow = 0;
+
+//   let totalRevenue = 0;
+//   let todayRevenue = 0;
+
+//   for (const doc of eventsSnap.docs) {
+//     const e = doc.data();
+//     const price = e.price || 0;
+
+
+//     if (e.status === "SERVED") totalServed++;
+//     if (e.status === "DECLARED_ABSENT") totalAbsent++;
+//     if (e.status === "NO_SHOW") totalNoShow++;
+
+//     if (e.date === today) {
+//       if (e.status === "SERVED") todayServed++;
+//       if (e.status === "DECLARED_ABSENT") todayAbsent++;
+//       if (e.status === "NO_SHOW") todayNoShow++;
+//     }
+
+//     /* ---------- REVENUE ---------- */
+//     if (e.status === "SERVED") {
+//       totalRevenue += price;
+//       if (e.date === today) todayRevenue += price;
+//     }
+
+//     if (e.status === "NO_SHOW") {
+//       const penalty = price * (1 - mess.penaltyPercent / 100);
+//       totalRevenue += penalty;
+//       if (e.date === today) todayRevenue += penalty;
+//     }
+
+//     if (e.status === "DECLARED_ABSENT") {
+     
+//       totalRevenue += price;
+//       if (e.date === today) todayRevenue += price;
+//     }
+//   }
+
+//   /* ---------------- RESPONSE ---------------- */
+//   return res.status(200).json(
+//     new ApiResponse({
+//       statusCode: 200,
+//       message: "Mess profile fetched",
+//       data: {
+//         messInfo: {
+//           messId,
+//           messName: mess.messName,
+//           campusType: mess.campusType,
+//           foodType: mess.foodType,
+//           studentCount: mess.studentCount,
+//           status: mess.status,
+//         },
+
+//         period: {
+//           startDate: mess.operation.startDate,
+//           endDate: mess.operation.endDate,
+//           totalDays: mess.totalDays,
+//         },
+
+//         pricing: {
+//           prices: mess.prices,
+//           penaltyPercent: mess.penaltyPercent,
+//         },
+
+//         stats: {
+//           total: {
+//             served: totalServed,
+//             declaredAbsent: totalAbsent,
+//             noShow: totalNoShow,
+//           },
+//           today: {
+//             served: todayServed,
+//             declaredAbsent: todayAbsent,
+//             noShow: todayNoShow,
+//           },
+//         },
+
+//         revenue: {
+//           today: todayRevenue,
+//           total: totalRevenue,
+//         },
+
+//         createdAt: mess.createdAt,
+//       },
+//     })
+//   );
+// });
+
+
+
 export const getMessProfile = asyncHandler(async (req, res) => {
   const { uid } = req.user;
-  const today = getTodayDate(); // YYYY-MM-DD
 
-  /* ---------------- FETCH MESS ---------------- */
   const messSnap = await db
     .collection("messes")
     .where("messAuth.uid", "==", uid)
@@ -199,57 +321,17 @@ export const getMessProfile = asyncHandler(async (req, res) => {
   const messId = messDoc.id;
   const mess = messDoc.data();
 
-  /* ---------------- FETCH EVENTS ---------------- */
-  const eventsSnap = await db
-    .collection("messes")
-    .doc(messId)
-    .collection("meal_events")
-    .get();
+  /* ---------------- USE SEEDED STATS ---------------- */
 
-  let totalServed = 0;
-  let totalAbsent = 0;
-  let totalNoShow = 0;
+  const stats = mess.stats || {
+    total: { served: 0, declaredAbsent: 0, noShow: 0 },
+    today: { served: 0, declaredAbsent: 0, noShow: 0 },
+  };
 
-  let todayServed = 0;
-  let todayAbsent = 0;
-  let todayNoShow = 0;
-
-  let totalRevenue = 0;
-  let todayRevenue = 0;
-
-  for (const doc of eventsSnap.docs) {
-    const e = doc.data();
-    const price = e.price || 0;
-
-    /* ---------- COUNTS ---------- */
-    if (e.status === "SERVED") totalServed++;
-    if (e.status === "DECLARED_ABSENT") totalAbsent++;
-    if (e.status === "NO_SHOW") totalNoShow++;
-
-    if (e.date === today) {
-      if (e.status === "SERVED") todayServed++;
-      if (e.status === "DECLARED_ABSENT") todayAbsent++;
-      if (e.status === "NO_SHOW") todayNoShow++;
-    }
-
-    /* ---------- REVENUE ---------- */
-    if (e.status === "SERVED") {
-      totalRevenue += price;
-      if (e.date === today) todayRevenue += price;
-    }
-
-    if (e.status === "NO_SHOW") {
-      const penalty = price * (1 - mess.penaltyPercent / 100);
-      totalRevenue += penalty;
-      if (e.date === today) todayRevenue += penalty;
-    }
-
-    if (e.status === "DECLARED_ABSENT") {
-      // Full price counted as mess revenue (food saved, cost recovered)
-      totalRevenue += price;
-      if (e.date === today) todayRevenue += price;
-    }
-  }
+  const revenue = mess.revenue || {
+    total: 0,
+    today: 0,
+  };
 
   /* ---------------- RESPONSE ---------------- */
   return res.status(200).json(
@@ -279,23 +361,24 @@ export const getMessProfile = asyncHandler(async (req, res) => {
 
         stats: {
           total: {
-            served: totalServed,
-            declaredAbsent: totalAbsent,
-            noShow: totalNoShow,
+            served: stats.total.served,
+            declaredAbsent: stats.total.declaredAbsent,
+            noShow: stats.total.noShow,
           },
           today: {
-            served: todayServed,
-            declaredAbsent: todayAbsent,
-            noShow: todayNoShow,
+            served: stats.today.served,
+            declaredAbsent: stats.today.declaredAbsent,
+            noShow: stats.today.noShow,
           },
         },
 
         revenue: {
-          today: todayRevenue,
-          total: totalRevenue,
+          total: revenue.total,
+          today: revenue.today,
         },
 
         createdAt: mess.createdAt,
+        statsSeededAt: mess.statsSeededAt || null,
       },
     })
   );

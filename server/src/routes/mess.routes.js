@@ -5,14 +5,22 @@ import {
   getMessDailyStats,
   getMessProfile,
   getMessMealEvents,
-  
 } from "../controllers/mess.controllers.js";
-import { scanMealEntry ,scanMealQRFromImage} from "../controllers/qr.controllers.js";
+import {
+  scanMealEntry,
+  scanMealQRFromImage,
+} from "../controllers/qr.controllers.js";
 import authMiddleware from "../middleware/auth.js";
 import { upload } from "../middleware/upload.middleware.js";
 
+import {
+  getMessAnalytics,
+  getMessAnalyticsSummary,
+  askMessAnalyticsAI,
+} from "../controllers/analytics.controllers.js";
+
 const router = express.Router();
-router.get("/profile",authMiddleware,getMessProfile)
+router.get("/profile", authMiddleware, getMessProfile);
 
 router.post("/apply", applyMessManager);
 router.get("/me", authMiddleware, getMessProfile);
@@ -21,14 +29,18 @@ router.get("/stats", authMiddleware, getMessDailyStats);
 
 router.get("/events", authMiddleware, getMessMealEvents);
 
-
 router.post("/scanQR", authMiddleware, scanMealEntry);
 router.post(
   "/scan-image",
   authMiddleware,
   upload.single("qrImage"),
-scanMealQRFromImage
+  scanMealQRFromImage
 );
 
+router.get("/analytics", authMiddleware, getMessAnalytics);
+
+router.get("/analytics/summary", authMiddleware, getMessAnalyticsSummary);
+
+router.post("/analytics/ask", authMiddleware, askMessAnalyticsAI);
 
 export default router;

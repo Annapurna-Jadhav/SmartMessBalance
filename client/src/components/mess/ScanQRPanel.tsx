@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Upload, Camera, X, Loader2 } from "lucide-react";
 import axiosClient from "@/api/axiosClient";
@@ -9,71 +8,92 @@ export default function ScanQRPanel({
 }: {
   onScanSuccess: (result: any) => void;
 }) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [scanning, setScanning] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  /* ---------- IMAGE STATE ---------- */
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  /* ================= CAMERA SCAN ================= */
+  /* ================= CAMERA ================= */
 
-  const startCameraScan = async () => {
-    if (scanning || loading) return;
-
-    const scanner = new Html5Qrcode("qr-reader");
-    scannerRef.current = scanner;
-    setScanning(true);
-
+  const startCamera = async () => {
     try {
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        async (decodedText) => {
-          await stopScan();
-          await submitToken(decodedText);
-        },
-        () => {}
-      );
+      setCameraOn(true); // 🔑 ensure video is rendered first
+
+      await new Promise((r) => setTimeout(r, 50)); // allow DOM paint
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false,
+      });
+
+      if (!videoRef.current) return;
+
+      videoRef.current.srcObject = stream;
+      videoRef.current.muted = true;
+      videoRef.current.playsInline = true;
+
+      await videoRef.current.play();
     } catch (err) {
-      alert("Camera access failed");
-      setScanning(false);
+      console.error("Camera error:", err);
+      alert("Camera access failed. Please allow permission.");
+      setCameraOn(false);
     }
   };
 
-  const stopScan = async () => {
-    if (scannerRef.current) {
-      await scannerRef.current.stop();
-      scannerRef.current.clear();
-      scannerRef.current = null;
+  const stopCamera = () => {
+    const stream = videoRef.current?.srcObject as MediaStream | null;
+    stream?.getTracks().forEach((t) => t.stop());
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
-    setScanning(false);
+
+    setCameraOn(false);
   };
 
-  /* ================= TOKEN SUBMIT ================= */
+  const captureAndScan = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
 
-  const submitToken = async (token: string) => {
-    setLoading(true);
-    try {
-      const res = await axiosClient.post(
-        "/mess-manager/scan",
-        { token }
-      );
-      onScanSuccess(res.data.data);
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Scan failed");
-    } finally {
-      setLoading(false);
-    }
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      const formData = new FormData();
+      formData.append("qrImage", blob, "camera-capture.png");
+
+      setLoading(true);
+      try {
+        const res = await axiosClient.post(
+          "/mess-manager/scan-image",
+          formData
+        );
+        onScanSuccess(res.data.data);
+        stopCamera();
+      } catch (err: any) {
+        alert(err.response?.data?.message || "QR not detected");
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   /* ================= IMAGE UPLOAD ================= */
 
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
 
@@ -88,90 +108,117 @@ export default function ScanQRPanel({
     formData.append("qrImage", file);
 
     setLoading(true);
-
     try {
       const res = await axiosClient.post(
         "/mess-manager/scan-image",
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        formData
       );
       onScanSuccess(res.data.data);
-      clearImage();
+      setFile(null);
+      setPreview(null);
     } catch (err: any) {
-      alert(
-        err.response?.data?.message ||
-          "QR not detected in image"
-      );
+      alert(err.response?.data?.message || "Scan failed");
+      setFile(null);
+      setPreview(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const clearImage = () => {
-    setFile(null);
-    setPreview(null);
-  };
-
   /* ================= UI ================= */
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col items-center justify-center gap-6">
 
-      {/* CAMERA BUTTON */}
-      <Button
-        onClick={startCameraScan}
-        disabled={scanning || loading}
-        className="w-full flex gap-2"
-      >
-        <Camera size={16} />
-        Scan using Camera
-      </Button>
+      {/* CAMERA PANEL */}
+      <div className="w-full max-w-md space-y-4">
 
-      {/* CAMERA VIEW */}
-      {scanning && (
-        <div className="relative">
-          <div
-            id="qr-reader"
-            className="rounded-lg overflow-hidden border"
-          />
+        {!cameraOn && !preview && (
           <Button
-            size="sm"
-            variant="destructive"
-            className="absolute top-2 right-2"
-            onClick={stopScan}
+            onClick={startCamera}
+            disabled={loading}
+            className="w-full h-12 text-base gap-2"
           >
-            <X size={14} />
+            <Camera size={18} />
+            Start Camera Scan
           </Button>
-        </div>
-      )}
+        )}
 
-      {/* IMAGE UPLOAD */}
-      <div className="space-y-3">
-        <label className="block">
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={handleFileSelect}
-          />
-          <Button
-            variant="outline"
-            className="w-full flex gap-2"
-            asChild
-          >
-            <span>
-              <Upload size={16} />
-              Upload QR Image
-            </span>
-          </Button>
-        </label>
+        {cameraOn && (
+          <div className="space-y-3">
+            <div className="relative w-full aspect-square rounded-2xl overflow-hidden border bg-black shadow-lg">
+
+              {/* LIVE FEED */}
+              <video
+                ref={videoRef}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+
+              {/* FOCUS FRAME */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-44 h-44 border-2 border-white/80 rounded-xl shadow-[0_0_0_2000px_rgba(0,0,0,0.4)]" />
+              </div>
+
+              {/* INSTRUCTION */}
+              <div className="absolute bottom-3 w-full text-center text-xs text-white/90">
+                Place QR inside the box
+              </div>
+            </div>
+
+            <canvas ref={canvasRef} hidden />
+
+            <div className="flex gap-2">
+              <Button
+                onClick={captureAndScan}
+                disabled={loading}
+                className="flex-1"
+              >
+                {loading ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  "Capture & Scan"
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={stopCamera}
+                disabled={loading}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* IMAGE UPLOAD FALLBACK */}
+        {!cameraOn && !preview && (
+          <label>
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handleFileSelect}
+            />
+            <Button
+              variant="outline"
+              className="w-full h-11 gap-2"
+              asChild
+            >
+              <span>
+                <Upload size={16} />
+                Upload QR Image
+              </span>
+            </Button>
+          </label>
+        )}
 
         {/* IMAGE PREVIEW */}
         {preview && (
           <div className="rounded-xl border p-3 space-y-3">
             <img
               src={preview}
-              alt="QR Preview"
+              alt="QR preview"
               className="rounded-lg max-h-64 mx-auto"
             />
 
@@ -190,10 +237,13 @@ export default function ScanQRPanel({
 
               <Button
                 variant="outline"
-                onClick={clearImage}
+                onClick={() => {
+                  setFile(null);
+                  setPreview(null);
+                }}
                 disabled={loading}
               >
-                <X size={14} />
+                <X size={16} />
               </Button>
             </div>
           </div>

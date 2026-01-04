@@ -12,7 +12,7 @@ import fs from "fs";
 
 import { extractQrFromImage } from "../utils/visionQR.js";
 
-const QR_SECRET = process.env.QR_SECRET;
+
 
 import { MEAL_TIMINGS } from "../config/mealTimings.js";
 
@@ -190,13 +190,13 @@ export const generateMealQR = asyncHandler(async (req, res) => {
 
 
 export const scanMealEntry = asyncHandler(async (req, res) => {
-
   const { token } = req.body;
-  console.log(`${token}`)
 
   if (!token) {
     throw new ApiError(400, "QR token required");
   }
+
+  const QR_SECRET = process.env.QR_SECRET;
 
   let payload;
   try {
@@ -226,13 +226,9 @@ export const scanMealEntry = asyncHandler(async (req, res) => {
       throw new ApiError(409, "QR already used");
     }
 
-  if (
-  session.expiresAt &&
-  session.expiresAt.toDate() < new Date()
-) {
-  throw new ApiError(403, "QR expired");
-}
-
+    if (session.expiresAt && session.expiresAt.toDate() < new Date()) {
+      throw new ApiError(403, "QR expired");
+    }
 
     const { uid, mealType, date } = session;
 
@@ -245,8 +241,10 @@ export const scanMealEntry = asyncHandler(async (req, res) => {
       throw new ApiError(404, "Meal day missing");
     }
 
-    const meal = daySnap.data().meals[mealType];
-    if (meal.status !== "QR_GENERATED") {
+    const dayData = daySnap.data();
+    const meal = dayData.meals?.[mealType];
+
+    if (!meal || meal.status !== "QR_GENERATED") {
       throw new ApiError(409, "Meal already processed");
     }
 
@@ -261,21 +259,27 @@ export const scanMealEntry = asyncHandler(async (req, res) => {
     const price = student.selectedMess.prices[mealType];
     const penaltyPercent = student.selectedMess.penaltyPercent;
 
-    // 1️⃣ Mark QR used
-    tx.update(sessionRef, { used: true });
+  
+    tx.update(sessionRef, {
+      used: true,
+      usedAt: new Date(),
+    });
 
-    // 2️⃣ Mark served
+   
     tx.update(dayRef, {
       [`meals.${mealType}.status`]: "SERVED",
+      [`meals.${mealType}.scannedAt`]: new Date(),
+      [`meals.${mealType}.settlementApplied`]: true,
+      [`meals.${mealType}.settledAt`]: new Date(),    
       updatedAt: new Date(),
     });
 
-    // 3️⃣ Increment mess served count
     tx.update(db.collection("messes").doc(messId), {
       servedCount: admin.firestore.FieldValue.increment(1),
+      totalRevenue: admin.firestore.FieldValue.increment(price), 
     });
 
-    // 4️⃣ Immutable event
+   
     tx.set(
       db.collection("messes")
         .doc(messId)
@@ -292,7 +296,8 @@ export const scanMealEntry = asyncHandler(async (req, res) => {
         penaltyPercent,
         date,
         scannedAt: new Date(),
-        settlementApplied: false,
+        settlementApplied: true, // ✅ MATCHES DAY DOC
+        settledAt: new Date(),
         createdAt: new Date(),
       }
     );
@@ -303,13 +308,14 @@ export const scanMealEntry = asyncHandler(async (req, res) => {
       mealType,
       date,
       messId,
+      settled: true,
     };
   });
 
   return res.status(200).json(
     new ApiResponse({
       statusCode: 200,
-      message: "Meal marked as served",
+      message: "Meal marked as served and settled",
       data: responseData,
     })
   );
