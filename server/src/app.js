@@ -30,7 +30,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// pages 
 import authRoutes from "./routes/auth.routes.js";
 import studentRoutes from "./routes/student.routes.js";
 import messRoutes from "./routes/mess.routes.js";

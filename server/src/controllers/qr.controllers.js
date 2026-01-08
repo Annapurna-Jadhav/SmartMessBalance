@@ -6,8 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { detectMealType } from "../utils/detectMealType.js";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
-import vision from "@google-cloud/vision";
-import fs from "fs";
+
 
 
 import { extractQrFromImage } from "../utils/visionQR.js";
@@ -45,7 +44,7 @@ export const generateMealQR = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Meal type required");
   }
 
-  // ⛔ Time enforcement (except dinner test mode)
+
   if (!isDinner(mealType) && !detectMealType()) {
     throw new ApiError(403, "Outside meal timing");
   }
@@ -62,7 +61,7 @@ export const generateMealQR = asyncHandler(async (req, res) => {
   let expiresIn = null;
 
   await db.runTransaction(async (tx) => {
-    /* ---------- STUDENT ---------- */
+  
     const studentSnap = await tx.get(studentRef);
     if (!studentSnap.exists) {
       throw new ApiError(404, "Student not found");
@@ -73,7 +72,7 @@ export const generateMealQR = asyncHandler(async (req, res) => {
       throw new ApiError(403, "Mess not selected");
     }
 
-    /* ---------- DAY DOC ---------- */
+  
     let daySnap = await tx.get(dayRef);
     if (!daySnap.exists) {
       tx.set(dayRef, {
@@ -94,7 +93,7 @@ export const generateMealQR = asyncHandler(async (req, res) => {
 
     const meal = daySnap.data().meals[mealType];
 
-    /* ---------- RESUME EXISTING QR ---------- */
+
     if (meal.status === "QR_GENERATED") {
       const existing = await tx.get(
         db.collection("qr_sessions")
@@ -338,7 +337,7 @@ export const scanMealQRFromImage = asyncHandler(async (req, res) => {
     throw new ApiError(400, err.message);
   }
 
-  // Reuse SAME logic as normal scan
+ 
   req.body.token = token;
   console.log("VISION QR:", token);
 console.log("LENGTH:", token.length);

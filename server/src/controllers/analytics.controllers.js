@@ -69,16 +69,15 @@ export const getMessAnalytics = asyncHandler(async (req, res) => {
 
     const day = {
       date: d.date,
-      meals: {}, // 👈 explicit
+      meals: {}, 
     };
 
     for (const [meal, m] of Object.entries(d.meals || {})) {
-      /* ---------- PEAK BUCKET ---------- */
+     
       if (m.peakBucket) {
         day.meals[meal] = m.peakBucket;
       }
 
-      /* ---------- TOTAL COUNTS ---------- */
       totals.served += m.served || 0;
       totals.declaredAbsent += m.declaredAbsent || 0;
       totals.noShow += m.noShow || 0;
