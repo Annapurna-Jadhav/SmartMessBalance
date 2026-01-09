@@ -7,7 +7,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 
 
 const nlpClient = new LanguageServiceClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
 });
 
 

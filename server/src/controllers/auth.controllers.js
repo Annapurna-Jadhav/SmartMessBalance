@@ -5,7 +5,7 @@ import ApiError from "../utils/ApiError.js";
 
 const db = admin.firestore();
 
-const ADMIN_EMAIL=process.env.ADMIN_EMAIL;
+
 
 const parseStudent = (emailPrefix) => {
   const rollMatch = emailPrefix.match(/\d{2,3}[a-z]{2,3}\d{3}/i);
