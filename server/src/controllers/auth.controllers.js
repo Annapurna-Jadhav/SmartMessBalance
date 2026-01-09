@@ -68,11 +68,11 @@ const ADMIN_EMAIL=process.env.ADMIN_EMAIL;
     );
   }
 
-  // ---------- MESS MANAGEMENT ----------
+ 
 const mess = parseMessManager(emailPrefix);
 
 if (mess) {
-  /* ---------- FIND APPROVED / ACTIVE MESS ---------- */
+ 
   const messSnap = await db
     .collection("messes")
     .where("messAuth.email", "==", email)
