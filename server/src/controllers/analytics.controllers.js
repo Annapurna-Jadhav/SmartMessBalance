@@ -4,6 +4,13 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
 import { VertexAI } from "@google-cloud/vertexai";
+import { BigQuery } from "@google-cloud/bigquery";
+
+export const bigquery = new BigQuery({
+  projectId: process.env.GCP_PROJECT_ID,
+  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
+});
+
 
 
 const MEALS = ["breakfast", "lunch", "snacks", "dinner"];
@@ -379,115 +386,212 @@ export const generateAnalyticsInsights = asyncHandler(async (req, res) => {
     })
   );
 });
-export const askMessAnalyticsAI = asyncHandler(async (req, res) => {
-  const { question } = req.body;
-  if (!question) {
-    throw new ApiError(400, "Question is required");
+
+
+
+
+export const getMessIdFromAuth = async (messAuthUid) => {
+  const messSnap = await db
+    .collection("messes")
+    .where("messAuth.uid", "==", messAuthUid)
+    .where("isActive", "==", true)
+    .limit(1)
+    .get();
+
+  if (messSnap.empty) {
+    throw new Error("Mess not found for this user");
   }
 
+  return messSnap.docs[0].id;
+};
 
-  const summary = await buildAnalyticsSummaryForMess(
-    req.user.uid,
-    30
-  );
 
-  
+
+export const askMessAnalyticsAI = asyncHandler(async (req, res) => {
+  const { question, days } = req.body;
+  if (!question) throw new ApiError(400, "Question is required");
+
   const q = question.toLowerCase();
-  const isPredictionQuery =
-    q.includes("predict") ||
-    q.includes("forecast") ||
-    q.includes("expected") ||
-    q.includes("will") ||
-    q.match(/\bjan\b|\bfeb\b|\bmar\b|\bapr\b/);
-const vertexAI = new VertexAI({
+
+  const intent =
+    q.includes("predict") || q.includes("forecast")
+      ? "PREDICTION"
+      : q.includes("waste") || q.includes("no show")
+      ? "WASTE"
+      : q.includes("peak") || q.includes("rush")
+      ? "PEAK"
+      : q.includes("attendance") || q.includes("served")
+      ? "ATTENDANCE"
+      : q.includes("quality") || q.includes("taste")
+      ? "FOOD_QUALITY"
+      : q.includes("what should") || q.includes("how can")
+      ? "GUIDANCE"
+      : "GENERAL";
+
+  const messId = req.user.messId
+    ? req.user.messId
+    : await getMessIdFromAuth(req.user.uid);
+
+  const cacheKey = days
+    ? `${messId}_SUMMARY_${days}`
+    : `${messId}_SUMMARY_ALL`;
+
+  const cacheRef = db
+    .collection("analytics_summary_cache")
+    .doc(cacheKey);
+
+  const cacheSnap = await cacheRef.get();
+  let summary;
+
+  if (cacheSnap.exists) {
+    const cached = cacheSnap.data();
+    if (
+      cached?.createdAt &&
+      Date.now() - cached.createdAt.toMillis() < 10 * 60 * 1000
+    ) {
+      summary = cached.summary;
+    }
+  }
+
+  if (!summary) {
+    summary = await buildAnalyticsSummaryForMessBigQuery({
+      messId,
+      days,
+    });
+
+    await cacheRef.set({
+      summary,
+      createdAt: new Date(),
+    });
+  }
+
+  const vertexAI = new VertexAI({
     project: process.env.GCP_PROJECT_ID,
     location: "us-central1",
+    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
   });
 
- 
-   const model = vertexAI.getGenerativeModel({
-    model: "gemini-2.5-pro",
+  const model = vertexAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
   });
 
-  
-const prompt = `
-You are a friendly, experienced assistant helping a college mess manager.
+ const prompt = `
+You are a knowledgeable, friendly, and practical assistant for a college mess management system.
 
-Your personality:
-- Human-like and confident
-- Calm, clear, and practical
-- Supportive, not robotic or academic
+You behave like an experienced mess operations expert who understands real hostel mess operations — attendance issues, food preparation, wastage, planning, and cost pressures. Your communication should feel natural and conversational, like ChatGPT, not robotic or academic.
 
-Your role:
-- Answer questions about attendance, food demand, waste, revenue, profit/loss, and planning
-- Help the user understand what is happening and what actions make sense
+Your responsibility is to handle ANY question related to the college mess. This includes:
+- Attendance, no-shows, and declared absences
+- Food wastage and efficiency issues
+- Meal-wise or day-wise trends
+- Peak hours and operational load
+- Food quality, taste, hygiene, and student satisfaction
+- Planning, optimization, and operational improvements
+- Revenue, cost, and profit/loss understanding (even when exact revenue data is missing)
+- Open-ended questions like “What’s going wrong?” or “What should we improve?”
 
-IMPORTANT RESPONSE RULES:
-- Give a balanced answer: informative but not lengthy
-- Aim for a medium-length response (about 5–7 readable lines)
-- Do NOT dump everything at once
-- Do NOT over-explain unless the user asks for more
-- Avoid unnecessary sections
+If a question is clearly outside mess operations, politely state that it is out of scope.
 
-DATA RULES (STRICT):
+====================
+CRITICAL DATA RULES
+====================
 - Use ONLY the data provided below
-- Do NOT invent numbers or assumptions
-- If something cannot be calculated from the data, say so clearly
-- You MAY estimate or extrapolate trends, but clearly mention that it is an estimate
+- Never invent numbers, prices, costs, revenue values, or assumptions
+- Do NOT extrapolate beyond the available data
+- Do NOT assume full-month or full-week coverage
+- If data is partial, clearly say: “based on data available till now”
+- If exact data (e.g., revenue or cost) is not available, say so explicitly
 
-WRITING & FORMATTING STYLE:
-- Write in **clear paragraphs**
-- Use **bold text** to highlight important points or numbers
-- Use **bullet points** only where it improves clarity
-- Use **short bold headings** when they help readability
-- Avoid long paragraphs
-- Keep the tone natural and conversational, like ChatGPT
-- Emojis are optional but should be minimal and subtle
+====================
+REVENUE & COST QUESTIONS (IMPORTANT)
+====================
+If the user asks about revenue, cost, profit, or financial impact:
+- Clearly state whether direct revenue or cost data is available or not
+- If revenue data is NOT available:
+  - Say that exact revenue or profit cannot be calculated
+  - You MAY give qualitative insights using supported signals such as:
+    - Served vs no-show trends
+    - Declared absences
+    - Consistency or drops in attendance
+    - Meal-wise demand stability
+- Frame such insights as **operational or efficiency impact**, not exact money values
+- Never assign rupee amounts, prices, or profit figures unless explicitly present in data
 
-Context:
-This data is from a college mess for the period:
+Example framing you MAY use:
+- “While exact revenue data is not available, higher no-shows suggest potential efficiency loss.”
+- “Stable served counts usually indicate predictable revenue, assuming pricing remains constant.”
+
+====================
+PREDICTIONS & PLANNING
+====================
+When users ask about prediction or future planning:
+- Base answers strictly on historical and recent data
+- Clearly communicate uncertainty
+- Never present future outcomes as guaranteed
+
+====================
+COMMUNICATION STYLE
+====================
+- Clear, calm, and practical
+- Simple language a mess manager or hostel staff can understand
+- Medium detail by default (around 5–7 readable lines)
+- Use **bold text sparingly** for key insights
+- Use bullet points only when they genuinely improve clarity
+- Avoid long paragraphs or dumping raw data
+
+====================
+ANSWER STRUCTURE
+====================
+1. Start with a direct, helpful answer to the question
+2. Clearly state what data is available and what is not
+3. Explain insights using only relevant data
+4. Highlight 1–2 meaningful observations if useful
+5. Suggest 1–2 practical, realistic actions when appropriate
+6. If something cannot be concluded, say so honestly
+
+Control depth dynamically:
+- If the user asks “why”, “explain”, or “deep dive”, provide more detail
+- Otherwise, stop once the main insight and guidance are clear
+
+====================
+DATA CONTEXT
+====================
+The following data is from a college mess for the period:
 ${summary.range.start} to ${summary.range.end}
 
-Available analytics data:
+Available mess data:
 ${JSON.stringify(summary, null, 2)}
 
-User question:
+====================
+USER QUESTION
+====================
 "${question}"
 
-HOW TO STRUCTURE THE ANSWER:
-- Start with a **direct, clear answer** to the question
-- Follow with a **short explanation** using the data
-- Mention **key trends** only if they add value
-- Include **1–2 practical, implementable suggestions**
-- If there is uncertainty, express it naturally (e.g., “this may vary”, “based on recent patterns”)
-- Do NOT explicitly label confidence levels
-
-DEPTH CONTROL (VERY IMPORTANT):
-- Default response should be medium detail
-- If the user asks “why”, “explain more”, “break down”, or “deep dive”, THEN go deeper
-- Otherwise, stop once the main insight and actions are clear
-
-Now generate a clear, confident, human-friendly response that is easy to read and act on.
+Now generate a clear, thoughtful, human-friendly response that directly addresses the question and helps the mess manager take informed, realistic action — without inventing or exaggerating financial conclusions.
 `;
 
 
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-  });
 
-  const answer =
-    result.response.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "Unable to generate response";
+  let answer = "Unable to generate response";
 
-  /* 6️⃣ Return */
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    answer =
+      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      answer;
+  } catch {
+    answer = "Unable to generate response at the moment.";
+  }
+
   return res.json(
     new ApiResponse({
       statusCode: 200,
-      message: isPredictionQuery
-        ? "Prediction generated"
-        : "Analytics insight generated",
+      message: "Insight generated successfully",
       data: {
-        mode: isPredictionQuery ? "PREDICTION" : "ANALYTICS",
+        intent,
         question,
         answer,
         range: summary.range,
@@ -497,6 +601,267 @@ Now generate a clear, confident, human-friendly response that is easy to read an
 });
 
 
+
+
+const ANALYTICS_TABLE = `\`${process.env.GCP_PROJECT_ID}.mess_analytics.mess_daily_analytics\``;
+
+export const buildAnalyticsSummaryForMessBigQuery = async ({
+  messId,
+  days,
+  startDate,
+  endDate,
+}) => {
+  if (!messId) throw new Error("messId is required");
+
+  const normalizeBQDate = (d) =>
+    typeof d === "string" ? d : d?.value ?? null;
+
+  let rangeStart;
+  let rangeEnd;
+
+  if (startDate && endDate) {
+    rangeStart = startDate;
+    rangeEnd = endDate;
+  } else if (days && days > 0) {
+    const end = new Date(Date.now() - 86400000);
+    const start = new Date(end);
+    start.setDate(start.getDate() - (days - 1));
+    rangeStart = start.toISOString().split("T")[0];
+    rangeEnd = end.toISOString().split("T")[0];
+  } else {
+    const [rangeRows] = await bigquery.query({
+      query: `
+        SELECT
+          MIN(date) AS startDate,
+          MAX(date) AS endDate
+        FROM ${ANALYTICS_TABLE}
+        WHERE messId = @messId
+      `,
+      params: { messId },
+    });
+
+    rangeStart = normalizeBQDate(rangeRows[0]?.startDate);
+    rangeEnd = normalizeBQDate(rangeRows[0]?.endDate);
+  }
+
+  if (!rangeStart || !rangeEnd) {
+    return {
+      range: null,
+      totals: {},
+      mealWise: {},
+      peakHours: {},
+      averages: {},
+      trendHint: {},
+      dayOfWeekStats: {},
+      mealDayStats: {},
+      daily: [],
+    };
+  }
+
+  const [rows] = await bigquery.query({
+    query: `
+      SELECT
+        date,
+        meal,
+        served,
+        declaredAbsent,
+        noShow,
+        peakBucket
+      FROM ${ANALYTICS_TABLE}
+      WHERE messId = @messId
+        AND date BETWEEN @start AND @end
+      ORDER BY date
+    `,
+    params: { messId, start: rangeStart, end: rangeEnd },
+  });
+
+  if (!rows.length) {
+    return {
+      range: { start: rangeStart, end: rangeEnd },
+      totals: { served: 0, declaredAbsent: 0, noShow: 0, foodWaste: 0 },
+      mealWise: {},
+      peakHours: {},
+      averages: {},
+      trendHint: {},
+      dayOfWeekStats: {},
+      mealDayStats: {},
+      daily: [],
+    };
+  }
+
+  const totals = {
+    served: 0,
+    declaredAbsent: 0,
+    noShow: 0,
+    foodWaste: 0,
+  };
+
+  const mealWise = {};
+  const peakTracker = {};
+  const dayOfWeekStats = {};
+  const dailyMap = {};
+
+  for (const meal of MEALS) {
+    mealWise[meal] = { served: 0, declaredAbsent: 0, noShow: 0 };
+    peakTracker[meal] = {};
+  }
+
+  for (let d = 0; d < 7; d++) {
+    dayOfWeekStats[d] = {};
+    for (const meal of MEALS) {
+      dayOfWeekStats[d][meal] = { served: 0, count: 0 };
+    }
+  }
+
+  for (const r of rows) {
+    const meal = String(r.meal).toLowerCase().trim();
+    if (!MEALS.includes(meal)) continue;
+
+    const dateStr = normalizeBQDate(r.date);
+    if (!dateStr) continue;
+
+    if (!dailyMap[dateStr]) {
+      dailyMap[dateStr] = {
+        date: dateStr,
+        meals: {},
+        totals: { served: 0, declaredAbsent: 0, noShow: 0 },
+      };
+    }
+
+    dailyMap[dateStr].meals[meal] = {
+      served: r.served,
+      declaredAbsent: r.declaredAbsent,
+      noShow: r.noShow,
+      peakBucket: r.peakBucket,
+    };
+
+    dailyMap[dateStr].totals.served += r.served;
+    dailyMap[dateStr].totals.declaredAbsent += r.declaredAbsent;
+    dailyMap[dateStr].totals.noShow += r.noShow;
+
+    totals.served += r.served;
+    totals.declaredAbsent += r.declaredAbsent;
+    totals.noShow += r.noShow;
+
+    mealWise[meal].served += r.served;
+    mealWise[meal].declaredAbsent += r.declaredAbsent;
+    mealWise[meal].noShow += r.noShow;
+
+    const dayIndex = new Date(dateStr).getDay();
+    if (!Number.isNaN(dayIndex)) {
+      dayOfWeekStats[dayIndex][meal].served += r.served;
+      dayOfWeekStats[dayIndex][meal].count++;
+    }
+
+    if (r.peakBucket) {
+      peakTracker[meal][r.peakBucket] =
+        (peakTracker[meal][r.peakBucket] || 0) + 1;
+    }
+  }
+
+  totals.foodWaste = totals.declaredAbsent + totals.noShow;
+
+  const daily = Object.values(dailyMap);
+
+  for (const d of daily) {
+    for (const meal of MEALS) {
+      if (!d.meals[meal]) {
+        d.meals[meal] = {
+          served: 0,
+          declaredAbsent: 0,
+          noShow: 0,
+          peakBucket: null,
+        };
+      }
+    }
+  }
+
+  const peakHours = {};
+  for (const meal of MEALS) {
+    let peak = null;
+    let max = 0;
+    for (const [bucket, count] of Object.entries(peakTracker[meal])) {
+      if (count > max) {
+        max = count;
+        peak = bucket;
+      }
+    }
+    peakHours[meal] = peak;
+  }
+
+  const averages = {};
+  for (const meal of MEALS) {
+    averages[meal] = Math.round(
+      mealWise[meal].served / Math.max(daily.length, 1)
+    );
+  }
+
+  const trendHint = {};
+  for (const meal of MEALS) {
+    if (daily.length < 4) {
+      trendHint[meal] = "INSUFFICIENT_DATA";
+      continue;
+    }
+
+    const mid = Math.floor(daily.length / 2);
+
+    const avg1 =
+      daily.slice(0, mid).reduce(
+        (s, d) => s + (d.meals?.[meal]?.served ?? 0),
+        0
+      ) / mid;
+
+    const avg2 =
+      daily.slice(mid).reduce(
+        (s, d) => s + (d.meals?.[meal]?.served ?? 0),
+        0
+      ) / (daily.length - mid);
+
+    trendHint[meal] =
+      avg2 > avg1 ? "INCREASING" : avg2 < avg1 ? "DECREASING" : "STABLE";
+  }
+
+  const DAY_NAMES = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+
+  const mealDayStats = {};
+
+  for (let d = 0; d < 7; d++) {
+    const dayName = DAY_NAMES[d];
+    mealDayStats[dayName] = {};
+
+    for (const meal of MEALS) {
+      const stats = dayOfWeekStats[d][meal];
+      mealDayStats[dayName][meal] = {
+        totalServed: stats.served,
+        days: stats.count,
+        avgServed:
+          stats.count > 0
+            ? Math.round(stats.served / stats.count)
+            : 0,
+      };
+    }
+  }
+
+  return {
+    range: { start: rangeStart, end: rangeEnd },
+    totals,
+    mealWise,
+    peakHours,
+    averages,
+    trendHint,
+    dayOfWeekStats,
+    mealDayStats,
+    daily,
+  };
+};
 
 
 export const getStudentAnalytics = asyncHandler(async (req, res) => {
