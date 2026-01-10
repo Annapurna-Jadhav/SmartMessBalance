@@ -10,6 +10,7 @@ export default function AnalyticsAIBox() {
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
+  
 
   const ask = async () => {
     try {
@@ -52,7 +53,7 @@ export default function AnalyticsAIBox() {
 
 
 
-      {/* ⬇️ IMPORTANT: no text-center here */}
+  
       <CardContent className="space-y-4">
    <Textarea
   placeholder="Ask Gemini about attendance, waste, revenue, planning…"
@@ -61,12 +62,29 @@ export default function AnalyticsAIBox() {
     placeholder:text-muted-foreground
     placeholder:font-medium
   "
+  disabled={loading}
   value={q}
-  onChange={(e) => setQ(e.target.value)}
+  onKeyDown={(e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    if (!loading && q.trim()) {
+      ask();
+    }
+  }
+}}
+
+onChange={(e) => {
+  setQ(e.target.value);
+
+  if (answer) {
+    setAnswer("");
+  }
+}}
+
 />
 
 
-        <Button onClick={ask} disabled={loading || !q}>
+        <Button onClick={ask} disabled={loading || !q.trim()}>
           {loading ? "Thinking…" : "Ask GEMINI"}
         </Button> 
         
@@ -83,7 +101,7 @@ export default function AnalyticsAIBox() {
               text-left
             "
           >
-            {/* ⬇️ HARD RESET: text-left */}
+  
             <div className="text-left">
              <ReactMarkdown
   remarkPlugins={[remarkGfm]}
