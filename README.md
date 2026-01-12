@@ -58,16 +58,16 @@ The student dashboard focuses on **fair billing, transparency, and control over 
 <table>
   <tr>
     <td align="center">
-      <img src="./images/student-wallet.png" width="250"/><br/>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/student-wallet.png.jpeg" width="450"/><br/>
       <sub>Wallet & Credits</sub>
     </td>
     <td align="center">
-      <img src="./images/student-qr.png" width="250"/><br/>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/student-qr.png.jpeg" width="450"/><br/>
       <sub>QR Meal Attendance</sub>
     </td>
     <td align="center">
-      <img src="./images/student-analytics.png" width="250"/><br/>
-      <sub>Meal History & Analytics</sub>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/student-analytics.png.jpeg" width="450"/><br/>
+      <sub>Meal History </sub>
     </td>
   </tr>
 </table>
@@ -89,15 +89,15 @@ The mess management dashboard helps **monitor operations, revenue, and food plan
 <table>
   <tr>
     <td align="center">
-      <img src="./images/mess-attendance.png" width="250"/><br/>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/mess-attendance.png.jpeg" width="450"/><br/>
       <sub>Attendance Overview</sub>
     </td>
     <td align="center">
-      <img src="./images/mess-revenue.png" width="250"/><br/>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/mess-revenue.png.jpeg" width="450"/><br/>
       <sub>Revenue & Peak Hours</sub>
     </td>
     <td align="center">
-      <img src="./images/mess-predictions.png" width="250"/><br/>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/mess-predictions.png" width="450"/><br/>
       <sub>AI Predictions</sub>
     </td>
   </tr>
@@ -120,12 +120,12 @@ This dashboard provides **oversight, approvals, and role-based transparency**.
 <table>
   <tr>
     <td align="center">
-      <img src="./images/hostel-approvals.png" width="300"/><br/>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/hostel-approvals.png" width="400"/><br/>
       <sub>Mess Approval & Tenders</sub>
     </td>
     <td align="center">
-      <img src="./images/hostel-roles.png" width="300"/><br/>
-      <sub>Role-Based Access</sub>
+      <img src="https://github.com/Annapurna-Jadhav/SmartMessCard/blob/main/images/hostel-approvedMess.png" width="400"/><br/>
+      <sub>Approved Messes</sub>
     </td>
   </tr>
 </table>
