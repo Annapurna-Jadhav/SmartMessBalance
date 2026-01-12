@@ -234,4 +234,4 @@ It ensures fairness for students, efficiency for mess management, and transparen
 
 ---
 
-### Built for Hackathons | Designed for Real Deployment
+### Built for TechSprint by google
