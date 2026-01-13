@@ -1,44 +1,34 @@
 # 🍽️ Smart Mess Card  
 ### Fair, Data-Driven & AI-Powered Hostel Mess Management
 
-Smart Mess Card is a **web-based mess management platform** that connects **actual meal attendance** with **billing, analytics, and AI-driven planning**.  
-It replaces fixed, assumption-based charging with a **transparent, usage-driven system** for students, mess management, and hostel authorities.
+Smart Mess Card is a **web-based hostel mess management system** that links **actual meal attendance** with **billing, analytics, and AI-driven planning**.  
+Instead of charging students based on assumptions, the system records **real meal usage** and enables **transparent, usage-based billing**, efficient mess operations, and accountable hostel administration.
 
 ---
 
 ## 🚩 Problem Statement
 
-Traditional hostel mess systems suffer from:
-- Fixed daily mess fees (~₹300/day) regardless of actual usage  
-- No refund or adjustment for skipped meals  
-- Lack of real attendance data for mess planning  
-- Financial loss for students and significant food wastage  
+Most traditional hostel mess systems face the following challenges:
+- Students are charged a **fixed daily fee (~₹300/day)** regardless of actual meal consumption  
+- Skipped meals do not result in **refunds or adjustments**  
+- Mess management lacks **accurate attendance data** for planning  
+- This leads to **financial loss for students** and **avoidable food wastage**
 
 ---
 
 ## 💡 Solution Overview
 
-Smart Mess Card introduces:
-- Meal-wise attendance tracking  
-- QR-based verification during meal time  
-- Advance absence declaration (≥ 24 hours)  
-- Fair, percentage-based penalty system  
-- Wallet-based credit management  
-- Analytics and AI-powered predictions  
+Smart Mess Card addresses these challenges by:
+- Tracking **meal-wise attendance** instead of assuming consumption  
+- Using **QR-based verification** during meal time  
+- Allowing **advance absence declaration (at least 24 hours prior)**  
+- Applying a **fair, percentage-based penalty** for no-shows  
+- Managing savings through a **digital wallet system**  
+- Providing **analytics and AI-powered predictions** for better planning  
 
 ---
 
-## 🧩 Stakeholders
-
-- **Students** – Fair billing, savings, transparency  
-- **Mess Management** – Accurate planning, revenue insights  
-- **Hostel Office / Authorities** – Oversight and accountability  
-
----
-
-## 🔄 High-Level System Flow
-
-This section explains how the system works end-to-end.
+## 🔁 How the System Works
 
 1. **Mess managers apply for a tender**, which is reviewed and approved by the Hostel Office.  
 2. **Students verify their hostel fee receipt** and select a mess from the approved list.  
@@ -47,9 +37,40 @@ This section explains how the system works end-to-end.
 5. Based on attendance or absence rules, **wallet credits or penalties are applied automatically**.  
 6. All data is securely stored and used to generate **analytics, insights, and AI-based predictions**.
 
-> This flow ensures fairness for students, accurate planning for mess management, and transparency for hostel authorities.
+> This workflow ensures fairness for students, accurate planning for mess management, and transparency across the system.
 
 ---
+
+## 🛠️ Technology Stack
+
+The platform is built using **modern, scalable, and production-ready technologies**.
+
+### Frontend
+- **React (TypeScript)** – Type-safe and scalable frontend architecture  
+- **shadcn/ui** – Modern, accessible UI components  
+- **Recharts** – Interactive charts for analytics dashboards  
+
+### Backend
+- **Node.js + Express.js** – RESTful backend APIs and business logic  
+- **Firebase Cloud Functions** – Serverless execution for QR validation, wallet updates, and penalties  
+
+### QR & Image Processing
+- **jsQR** – Client-side decoding of QR codes during meal scanning  
+- **Google Cloud Vision API** – Image-based QR and visual verification support (fallback and enhancements)  
+
+### Authentication
+- **Firebase Authentication** – Secure authentication for students and mess staff  
+
+### Data & Analytics
+- **Cloud Firestore** – Real-time storage of attendance, wallet transactions, and feedback  
+- **BigQuery** – Aggregation and analysis of historical data for insights and reporting  
+
+### AI & Machine Learning
+- **Vertex AI (Gemini 2.5 Flash)** – Predicts student turnout and food demand  
+- **Cloud Natural Language API** – Performs sentiment analysis and tagging on student feedback  
+
+---
+
 
 ## 👨‍🎓 Student Dashboard
 
@@ -185,25 +206,6 @@ Student feedback is transformed into **clear, actionable improvements**.
 - Automatic sentiment classification  
 - Tag-based issue identification (taste, hygiene, quantity, etc.)  
 - Faster and more informed action by mess management  
-
----
-
-## 🛠️ Technology Stack
-
-### Authentication & Backend
-- **Firebase Authentication** – Secure user access  
-- **Firebase Cloud Functions** – QR validation, wallet logic, penalties  
-
-### Data & Analytics
-- **Cloud Firestore** – Real-time attendance, wallet, feedback data  
-- **BigQuery** – Historical analytics and aggregation  
-
-### Frontend
-- **Recharts** – Interactive dashboards and visual analytics  
-
-### AI & ML
-- **Vertex AI (Gemini 2.5 Flash)** – Attendance and demand prediction  
-- **Cloud Natural Language API** – Feedback sentiment and tagging  
 
 ---
 
