@@ -6,7 +6,7 @@ Instead of charging students based on assumptions, the system records **real mea
 
 ---
 
-## 🚩 Problem Statement
+##  Problem Statement
 
 Most traditional hostel mess systems face the following challenges:
 - Students are charged a **fixed daily fee (~₹300/day)** regardless of actual meal consumption  
@@ -28,7 +28,7 @@ Smart Mess Card addresses these challenges by:
 
 ---
 
-## 🔁 How the System Works
+##  How the System Works
 
 1. **Mess managers apply for a tender**, which is reviewed and approved by the Hostel Office.  
 2. **Students verify their hostel fee receipt** and select a mess from the approved list.  
@@ -41,7 +41,7 @@ Smart Mess Card addresses these challenges by:
 
 ---
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 The platform is built using **modern, scalable, and production-ready technologies**.
 
@@ -134,7 +134,7 @@ The mess management dashboard helps **monitor operations, revenue, and food plan
 
 ---
 
-## 🏢 Hostel Office / Authority Dashboard
+## 🏢 Hostel Office Dashboard
 
 This dashboard provides **oversight, approvals, and role-based transparency**.
 
@@ -159,7 +159,7 @@ This dashboard provides **oversight, approvals, and role-based transparency**.
 
 ---
 
-## 📊 Analytics & AI Insights
+## Analytics & AI Insights
 
 This section converts raw data into **actionable insights for planning and optimization**.
 
@@ -184,7 +184,7 @@ This section converts raw data into **actionable insights for planning and optim
 
 ---
 
-## 💬 Feedback & Sentiment Analysis
+##  Feedback & Sentiment Analysis
 
 Student feedback is transformed into **clear, actionable improvements**.
 
@@ -209,7 +209,7 @@ Student feedback is transformed into **clear, actionable improvements**.
 
 ---
 
-## 📈 Impact & Benefits
+##  Impact & Benefits
 
 - Fair, usage-based billing for students  
 - Students can save unused meal credits  
@@ -220,7 +220,7 @@ Student feedback is transformed into **clear, actionable improvements**.
 
 ---
 
-## 🚀 Future Scope
+##  Future Scope
 
 - Face verification for faster and secure meal entry  
 - Unified campus wallet for food courts, canteens, and outlets  
@@ -229,11 +229,11 @@ Student feedback is transformed into **clear, actionable improvements**.
 
 ---
 
-## 🏁 Conclusion
+##  Conclusion
 
 Smart Mess Card modernizes hostel mess operations by combining **real-time data, analytics, and AI**.  
 It ensures fairness for students, efficiency for mess management, and transparency for authorities—making it a **scalable, real-world ready solution**.
 
 ---
 
-### Built for TechSprint by google
+### Built for TechSprint
